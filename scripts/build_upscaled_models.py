@@ -254,12 +254,13 @@ def build_level(fine_grid, source_egrid: Path, cell_count: int,
         shutil.copy2(source_dir / filename, target_dir / filename)
     if cell_count == 104098:
         # The fine grid is the fixed FMU computational grid.
-        for filename in (
-            "Grid.grdecl", "probfaction.npz", "US_schdl.sch", "EQLNUM.grdecl",
-            "FIPNUM.grdecl", "FIPZON.grdecl", "MULTNUM.grdecl", "PVTNUM.grdecl",
-        ):
+        for filename in ("Grid.grdecl", "probfaction.npz", "US_schdl.sch"):
             shutil.copy2(source_dir / filename, target_dir / filename)
         shutil.copy2(source_egrid, target_dir / "Grid.EGRID")
+        fine_size = int(np.prod(fine_grid.dims))
+        for keyword, path in REGION_INPUTS.items():
+            values = read_keyword(path, keyword, fine_size)
+            write_grdecl(target_dir / f"{keyword}.grdecl", keyword, values, integer=True)
         identity = sparse.identity(cell_count, format="csr")
         sparse.save_npz(target_dir / "TransformMatVolume.npz", identity)
         sparse.save_npz(target_dir / "TransformMatMean.npz", identity)
