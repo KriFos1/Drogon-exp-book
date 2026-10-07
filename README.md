@@ -27,6 +27,12 @@ full-grid data vector includes the eight producer rate series and three
 latest Jupiter2 normalization of the seismic observations to `[-1, 1]` for all
 four methods.
 
+The localized 520k-parameter state cannot use PET's dense `numpy.corrcoef(X,
+Y)` temporary, which would allocate a square state-space matrix. The
+experiment-local `drogon_exp.localization` registers a blockwise implementation
+of the same cross-correlation calculation and taper, keeping localization
+memory-bounded while retaining PET's adaptive-localization behavior.
+
 ## Requirements
 
 - Python 3.12
