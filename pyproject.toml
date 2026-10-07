@@ -15,6 +15,8 @@ dependencies = [
     "subsurface @ git+https://github.com/Python-Ensemble-Toolbox/SimulatorWrap.git@00f3cc487634c932a69f22d5379a004fb31692bd",
     "fault-aware-upscaling @ git+https://github.com/KriFos1/upscaling_v2.git@31a1a91854e5cd3888f9935aa9da1258a97f95dd",
     "open-petro-elastic==1.4.1",
+    # SimulatorWrap's Equinor sim2seis loader imports pkg_resources.
+    "setuptools<81",
     "numpy>=1.24",
     "scipy>=1.10",
     "pandas>=2.0",
