@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import numpy as np
 from scipy import sparse
 
 from subsurface.multphaseflow.flow_rock import flow_equinor_sim2seis
-from upscaling import load_grid
 
 
 class DrogonFlowSim2Seis(flow_equinor_sim2seis):
@@ -26,12 +23,7 @@ class DrogonFlowSim2Seis(flow_equinor_sim2seis):
         self.multilevel_run = multilevel
         self.fixed_fine_level = not multilevel
         self._pinv_cache = {}
-        levels_dir = Path(__file__).resolve().parents[2] / "LevelsV2"
-        self.active_indices = [
-            np.flatnonzero(load_grid(levels_dir / f"Level{count}" / "Grid.EGRID",
-                                     relative_tolerance=1e-7).active.ravel())
-            for count in (300, 9000, 17500, 104098)
-        ]
+        self._current_active_indices = None
 
     def setup_fwd_run(self, level=-1, redund_sim=None, **kwargs):
         self.redund_sim = redund_sim
@@ -61,7 +53,10 @@ class DrogonFlowSim2Seis(flow_equinor_sim2seis):
             return prediction
 
         inverse = self._level_pinv(level) if level < 3 and self.level_transforms else None
-        coarse_size = len(self.active_indices[level])
+        active_indices = self._current_active_indices
+        if active_indices is None:
+            raise RuntimeError("No ACTNUM mapping was captured from this Flow member")
+        coarse_size = len(active_indices)
         full_size = 104098
         for report in prediction:
             values = report.get("sim2seis")
@@ -72,9 +67,9 @@ class DrogonFlowSim2Seis(flow_equinor_sim2seis):
                 # frame has no acoustic-impedance observation there.
                 if values.size == 1 and (300, 9000, 17500, full_size)[level] > 1:
                     continue
-                if values.size == len(self.active_indices[level]):
+                if values.size == len(active_indices):
                     expanded = np.zeros((300, 9000, 17500, full_size)[level], dtype=float)
-                    expanded[self.active_indices[level]] = values
+                    expanded[active_indices] = values
                     values = expanded
                 elif values.size != (300, 9000, 17500, full_size)[level]:
                     raise ValueError(
@@ -96,3 +91,11 @@ class DrogonFlowSim2Seis(flow_equinor_sim2seis):
                 # after interpolation onto the (K, J, I) grid.
                 report["sim2seis"] = np.flip(values.reshape((31, 73, 46)), axis=1).reshape(-1)
         return prediction
+
+    def extract_data(self, member):
+        # MINPV may deactivate a few cells during initialization; use ACTNUM
+        # from the per-member EGRID rather than a static GRDECL-derived mask.
+        self._current_active_indices = np.flatnonzero(
+            np.asarray(self.ecl_case.grid()["ACTNUM"], dtype=bool).ravel()
+        )
+        return super().extract_data(member)
