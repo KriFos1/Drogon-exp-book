@@ -47,21 +47,20 @@ four methods.
 ```
 
 Setup creates `.venv`, installs the dependencies pinned in `pyproject.toml`,
-rebuilds the coarse grids and exact fine/coarse volume-intersection matrices
-with upscaling-v2, generates
-the 100-, 2,244-, and 6,488-member prior ensembles, and runs ES-MDA by default.
+rebuilds the coarse grids and fast logical-block volume-weighted maps with
+upscaling-v2, generates the 100-, 2,244-, and 6,488-member prior ensembles, and
+runs ES-MDA by default.
 Set `EXPERIMENT=MLHES-MDA` or another method name before running setup to choose
 the final setup run.
 
-The exact 3D corner-point intersection maps and the largest prior are
-compute- and memory-intensive; run the full setup on a workstation/HPC node
-with the resources noted above. The builder supports `--levels` for development
-checks and a faster logical-block volume-map mode for quick geometry checks.
+The largest prior is memory- and disk-intensive; run the full setup on a
+workstation/HPC node with the resources noted above. The builder supports
+`--levels` for development checks.
 
-The setup uses `build_upscaled_models.py --exact-intersections`. For a faster
-grid/mapping development pass, running the builder without that flag uses the
-v2 logical-block boundaries with fine-cell volume weights instead of the
-tetrahedron-intersection calculation.
+For exact tetrahedron-intersection matrices instead of the default logical
+block volume maps, set `DROGON_EXACT_OVERLAP=1` before running `setup.sh` or pass
+`--exact-intersections` directly to `scripts/build_upscaled_models.py`. This
+exact option is very compute-intensive for the full Drogon grid.
 
 Run one experiment:
 

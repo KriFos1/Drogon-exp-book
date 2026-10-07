@@ -12,7 +12,11 @@ source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -e .
 
-python scripts/build_upscaled_models.py --exact-intersections
+OVERLAP_ARGS=()
+if [[ "${DROGON_EXACT_OVERLAP:-0}" == "1" ]]; then
+  OVERLAP_ARGS+=(--exact-intersections)
+fi
+python scripts/build_upscaled_models.py "${OVERLAP_ARGS[@]}"
 python scripts/make_prior.py
 python scripts/run_experiment.py "${EXPERIMENT:-ES-MDA}"
 
