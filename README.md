@@ -30,7 +30,10 @@ four methods.
 ## Requirements
 
 - Python 3.12
-- OPM Flow (`flow`) on `PATH`
+- OPM Flow (`flow`) installed separately as a system dependency and available
+  on `PATH`. `setup.sh` and `pyproject.toml` do **not** install OPM Flow; install
+  it using the supported system/package-manager process for your host, then
+  verify it with `flow --version` before running the experiments.
 - MPI runtime for the configured OPM Flow runs
 - Enough memory and disk for large prior ensembles and result artifacts
 - Roughly 32 GB RAM and 40 GB free disk for the full 6,488-member SMLES prior
