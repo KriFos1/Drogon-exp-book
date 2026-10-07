@@ -223,6 +223,12 @@ ES-MDA/DROGON.mako
 ES-MDA-loc/DROGON.mako
 MLHES-MDA/DROGON.mako
 SMLES/DROGON.mako
+*/Crashdump/
+*/En_*/
+*/emergency_dump
+*/debug_analysis_step_*.npz
+*/sim_results.p
+*/why_iter_loop_stopped.p
 _upscaling_build/
 
 # Level archives only need the grid/fault transfer sources consumed by v2.
