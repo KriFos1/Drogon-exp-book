@@ -254,7 +254,10 @@ def build_level(fine_grid, source_egrid: Path, cell_count: int,
         shutil.copy2(source_dir / filename, target_dir / filename)
     if cell_count == 104098:
         # The fine grid is the fixed FMU computational grid.
-        for filename in ("Grid.grdecl", "probfaction.npz", "US_schdl.sch"):
+        for filename in (
+            "Grid.grdecl", "probfaction.npz", "US_schdl.sch", "EQLNUM.grdecl",
+            "FIPNUM.grdecl", "FIPZON.grdecl", "MULTNUM.grdecl", "PVTNUM.grdecl",
+        ):
             shutil.copy2(source_dir / filename, target_dir / filename)
         shutil.copy2(source_egrid, target_dir / "Grid.EGRID")
         identity = sparse.identity(cell_count, format="csr")
