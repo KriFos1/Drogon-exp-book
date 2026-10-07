@@ -1,0 +1,49 @@
+ensemble:
+  ne: 100
+  seed: 10
+  state: [permx, permy, permz, poro, satnum, f1, f2, f3, f4, f5, f6]
+  importstaticvar: ../priors/prior_100.npz
+  prior_permx: {var: 1.0, grid: [46, 73, 31], limits: [-5.0, 8.5]}
+  prior_permy: {var: 1.0, grid: [46, 73, 31], limits: [-5.0, 8.5]}
+  prior_permz: {var: 1.0, grid: [46, 73, 31], limits: [-5.0, 8.5]}
+  prior_poro: {var: 1.0, grid: [46, 73, 31], limits: [0.01, 0.5]}
+  prior_satnum: {var: 1.0, grid: [46, 73, 31], limits: [-100000, 100000]}
+  prior_f1: {var: 1.0, grid: [1, 1, 1]}
+  prior_f2: {var: 1.0, grid: [1, 1, 1]}
+  prior_f3: {var: 1.0, grid: [1, 1, 1]}
+  prior_f4: {var: 1.0, grid: [1, 1, 1]}
+  prior_f5: {var: 1.0, grid: [1, 1, 1]}
+  prior_f6: {var: 1.0, grid: [1, 1, 1]}
+
+dataassim:
+  savefolder: Results
+  scheme: esmda
+  analysis: approx
+  energy: 98
+  obsname: dates
+  data: ../data/observations/data.pkl
+  datavar: ../data/observations/var.pkl
+  savedata: [ensemble_misfit]
+  mda: {tot_assim_steps: 4, inflation_param: [4, 4, 4, 4]}
+  localization:
+    name: autoadaloc
+    field: [46, 73, 31]
+    threshold: fixed
+    cutoff: 0.75
+    type: sigm
+
+simulator:
+  reporttype: datetime
+  reportpoint: ../data/observations/reportdates.csv
+  runfile: drogon
+  startdate: 1/1/2018
+  date_slack: 60
+  rerun: 1
+  sim_limit: 24000
+  parallel: 8
+  datatype: ../data/observations/datatyp.csv
+  simoptions: [[mpi, "mpirun --bind-to none -np 2"]]
+  pem:
+    - [config, ../data/pem_config_drogon.yml]
+    - [baseline, "2018-01-01"]
+    - [vintage, ["2018-07-01", "2019-07-01", "2020-07-01"]]
