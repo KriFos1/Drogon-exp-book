@@ -3,7 +3,7 @@ import numpy as np
 import re
 from scipy.stats import norm
 from scipy import sparse
-level_path = ['../LevelsV2/Level300/','../LevelsV2/Level9000/','../LevelsV2/Level17500/', '../LevelsV2/Level104098/']
+level_path = ['../Levels/Level300/','../Levels/Level9000/','../Levels/Level17500/', '../Levels/Level104098/']
 
 def _extract_satnum(prob,g):
     unif_g = norm.cdf(g)
@@ -53,6 +53,16 @@ else:
 
 prob = np.load(f'{level_path[level]}probfaction.npz', allow_pickle=True)
 satnum_val = _extract_satnum(prob, satnum_tmp)
+region_files = {name: f'../{level_path[level]}{name}.grdecl'
+                for name in ('MULTNUM', 'EQLNUM', 'FIPNUM', 'FIPZON', 'PVTNUM')}
+if level == 3:
+    region_files = {
+        'MULTNUM': '../../include/grid/drogon.multnum',
+        'EQLNUM': '../../include/regions/drogon.eqlnum',
+        'FIPNUM': '../../include/regions/drogon.fipnum',
+        'FIPZON': '../../include/regions/drogon.fipzon',
+        'PVTNUM': '../../include/regions/drogon.pvtnum',
+    }
 %>
 
 -- This reservoir simulation deck is made available under the Open Database
@@ -236,7 +246,7 @@ ${"%.9f" %(poro_val[i])}
 /
  
 INCLUDE
-${f"'../{level_path[level]}MULTNUM.grdecl' /"}
+${f"'{region_files['MULTNUM']}' /"}
 
 INCLUDE
  '../../include/grid/drogon.multregt' / --from ert template
@@ -286,13 +296,13 @@ REGIONS
 -- =============================================================================
 
 INCLUDE
-${f"'../{level_path[level]}EQLNUM.grdecl' /"}
+${f"'{region_files['EQLNUM']}' /"}
 
 INCLUDE
-${f"'../{level_path[level]}FIPNUM.grdecl' /"}
+${f"'{region_files['FIPNUM']}' /"}
 
 INCLUDE
-${f"'../{level_path[level]}FIPZON.grdecl' /"}
+${f"'{region_files['FIPZON']}' /"}
 
 SATNUM
 % for val in satnum_val:
@@ -304,7 +314,7 @@ ${f'{int(val)}'}
 -- '../../include/regions/drogon.satnum' / --exported by rms
 
 INCLUDE
-${f"'../{level_path[level]}PVTNUM.grdecl' /"}
+${f"'{region_files['PVTNUM']}' /"}
 
 -- =============================================================================
 SOLUTION

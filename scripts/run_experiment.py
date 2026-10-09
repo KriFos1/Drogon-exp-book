@@ -15,6 +15,7 @@ from drogon_exp.simulator import DrogonFlowSim2Seis
 ROOT = Path(__file__).resolve().parents[1]
 LEVELS = (300, 9000, 17500, 104098)
 EXPERIMENTS = ("ES-MDA", "ES-MDA-loc", "MLHES-MDA", "SMLES")
+LEVEL_SOURCE = "archived-jupiter2-levels"
 
 
 def run(name: str) -> None:
@@ -25,6 +26,12 @@ def run(name: str) -> None:
         import drogon_exp.smles  # register the public-PET-compatible sequential scheme
 
     folder = ROOT / name
+    result_dir = folder / "Results"
+    source_marker = result_dir / "level_inputs.txt"
+    if (result_dir / "posterior_state_estimate.npz").exists() and (
+        not source_marker.exists() or source_marker.read_text().strip() != LEVEL_SOURCE
+    ):
+        raise SystemExit(f"{name} has results from a different level set; move Results aside before rerunning")
     shutil.copy2(ROOT / "scripts" / "DROGON.mako", folder / "DROGON.mako")
     old_cwd = Path.cwd()
     os.chdir(folder)
@@ -35,7 +42,7 @@ def run(name: str) -> None:
         if os.environ.get("DROGON_MPI"):
             keys_sim["simoptions"] = [["mpi", os.environ["DROGON_MPI"]]]
 
-        transform_paths = [str(ROOT / "LevelsV2" / f"Level{count}" / "TransformMatMean.npz")
+        transform_paths = [str(ROOT / "Levels" / f"Level{count}" / "TransformMatMean.npz")
                            for count in LEVELS]
         sim = DrogonFlowSim2Seis(
             keys_sim,
@@ -43,7 +50,6 @@ def run(name: str) -> None:
             multilevel=name in {"MLHES-MDA", "SMLES"},
         )
         scheme = pipt_init.init_da(keys_da, keys_en, sim)
-        result_dir = folder / "Results"
         result_dir.mkdir(exist_ok=True)
 
         if name == "MLHES-MDA":
@@ -77,6 +83,7 @@ def run(name: str) -> None:
                 forecast = forecast[-1]
             forecast.to_pickle(result_dir / "posterior_forecast.pkl")
 
+        source_marker.write_text(LEVEL_SOURCE + "\n")
         print(f"{name}: {result.prior_data_misfit:.6g} -> {result.data_misfit:.6g}")
     finally:
         os.chdir(old_cwd)

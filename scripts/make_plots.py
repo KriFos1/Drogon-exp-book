@@ -184,7 +184,9 @@ def plot_model_and_regions() -> None:
 
     eql_fields = []
     for cells, shape in LEVEL_DIMS.items():
-        values = read_file("EQLNUM", str(ROOT / "LevelsV2" / f"Level{cells}" / "EQLNUM.grdecl"))
+        region = (ROOT / "include/regions/drogon.eqlnum" if cells == 104098
+                  else ROOT / "Levels" / f"Level{cells}" / "EQLNUM.grdecl")
+        values = read_file("EQLNUM", str(region))
         k_index = min(shape[0] // 2, shape[0] - 1)
         eql_fields.append(np.asarray(values).reshape(shape)[k_index])
     fig, axes = plt.subplots(1, 4, figsize=(14, 4), constrained_layout=True)
@@ -202,7 +204,7 @@ def plot_model_and_regions() -> None:
     if not prior_path.exists():
         return
     with np.load(prior_path) as prior, np.load(
-        ROOT / "LevelsV2" / "Level104098" / "probfaction.npz"
+        ROOT / "Levels" / "Level104098" / "probfaction.npz"
     ) as probabilities:
         latent = [prior["satnum"][:, index] for index in (0, 1)]
         probability_names = ["p1", "p2", "p3", "p4", "p7", "p8", "p9", "p10", "p11", "p12"]
