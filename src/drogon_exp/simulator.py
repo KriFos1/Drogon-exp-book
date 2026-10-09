@@ -4,8 +4,13 @@ from __future__ import annotations
 
 import numpy as np
 from scipy import sparse
+from scipy.sparse.linalg import lsmr
 
 from subsurface.multphaseflow.flow_rock import flow_equinor_sim2seis
+
+
+def downscale(transform, values):
+    return lsmr(transform, values, atol=1e-7, btol=1e-7)[0]
 
 
 class DrogonFlowSim2Seis(flow_equinor_sim2seis):
@@ -14,7 +19,7 @@ class DrogonFlowSim2Seis(flow_equinor_sim2seis):
     PET asks the simulator to switch fidelity with ``setup_fwd_run(level=i)``.
     For levels 0--2, the PEM returns acoustic impedance on the coarse grid;
     PET requires predictions in the fine observation space. The pseudo-inverse
-    of the v2 volume-average map performs that downscaling.
+    of the archived volume-average map performs that downscaling.
     """
 
     def __init__(self, input_dict, level_transforms=None, multilevel=False):
@@ -22,7 +27,7 @@ class DrogonFlowSim2Seis(flow_equinor_sim2seis):
         self.level_transforms = level_transforms or []
         self.multilevel_run = multilevel
         self.fixed_fine_level = not multilevel
-        self._pinv_cache = {}
+        self._transform_cache = {}
         self._current_active_indices = None
 
     def setup_fwd_run(self, level=-1, redund_sim=None, **kwargs):
@@ -31,20 +36,10 @@ class DrogonFlowSim2Seis(flow_equinor_sim2seis):
         if self.fixed_fine_level:
             self.level = 3
 
-    def _level_pinv(self, level):
-        if level not in self._pinv_cache:
-            transform = sparse.load_npz(self.level_transforms[level]).tocsr()
-            if transform.shape[0] == transform.shape[1]:
-                self._pinv_cache[level] = None
-            else:
-                # v2 overlap maps partition fine cells by coarse cell, so rows
-                # are orthogonal and T T^T is diagonal.
-                row_norm = np.asarray(transform.multiply(transform).sum(axis=1)).ravel()
-                inverse = np.zeros_like(row_norm)
-                positive = row_norm > 0
-                inverse[positive] = 1.0 / row_norm[positive]
-                self._pinv_cache[level] = (transform.T @ sparse.diags(inverse)).tocsr()
-        return self._pinv_cache[level]
+    def _level_transform(self, level):
+        if level not in self._transform_cache:
+            self._transform_cache[level] = sparse.load_npz(self.level_transforms[level]).tocsr()
+        return self._transform_cache[level]
 
     def run_fwd_sim(self, state, member_i, del_folder=True):
         level = getattr(self, "level", -1)
@@ -52,7 +47,7 @@ class DrogonFlowSim2Seis(flow_equinor_sim2seis):
         if prediction is False or level < 0:
             return prediction
 
-        inverse = self._level_pinv(level) if level < 3 and self.level_transforms else None
+        transform = self._level_transform(level) if level < 3 and self.level_transforms else None
         active_indices = self._current_active_indices
         if active_indices is None:
             raise RuntimeError("No ACTNUM mapping was captured from this Flow member")
@@ -67,6 +62,10 @@ class DrogonFlowSim2Seis(flow_equinor_sim2seis):
                 # frame has no acoustic-impedance observation there.
                 if values.size == 1 and (300, 9000, 17500, full_size)[level] > 1:
                     continue
+                if level < 3 and not np.isfinite(values).all():
+                    # An undefined coarse-cell PEM result has no usable 4D AI
+                    # change; do not spread it across fine-grid observations.
+                    values = np.where(np.isfinite(values), values, 0.0)
                 if values.size == len(active_indices):
                     expanded = np.zeros((300, 9000, 17500, full_size)[level], dtype=float)
                     expanded[active_indices] = values
@@ -76,8 +75,8 @@ class DrogonFlowSim2Seis(flow_equinor_sim2seis):
                         f"Level {level} sim2seis size {values.size} is neither active-cell "
                         f"count {coarse_size} nor full-grid size {(300, 9000, 17500, full_size)[level]}"
                     )
-                if inverse is not None:
-                    values = inverse @ values
+                if transform is not None:
+                    values = downscale(transform, values)
                 # The frozen observations use the chapter's [-1, 1] vintage
                 # normalization. Normalize each predicted 4D field likewise.
                 finite = np.isfinite(values)

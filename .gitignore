@@ -231,19 +231,43 @@ SMLES/DROGON.mako
 */why_iter_loop_stopped.p
 _upscaling_build/
 
-# Level archives only need the grid/fault transfer sources consumed by v2.
+# Archived model inputs required by the published level hierarchy.
 Levels/Level300/*
-!Levels/Level300/Grid.EGRID
+!Levels/Level300/Grid.grdecl
 !Levels/Level300/FAULT.INC
 !Levels/Level300/drogon_US.trans
+!Levels/Level300/TransformMatMean.npz
+!Levels/Level300/probfaction.npz
+!Levels/Level300/US_schdl.sch
+!Levels/Level300/MULTNUM.grdecl
+!Levels/Level300/EQLNUM.grdecl
+!Levels/Level300/FIPNUM.grdecl
+!Levels/Level300/FIPZON.grdecl
+!Levels/Level300/PVTNUM.grdecl
 Levels/Level9000/*
-!Levels/Level9000/Grid.EGRID
+!Levels/Level9000/Grid.grdecl
 !Levels/Level9000/FAULT.INC
 !Levels/Level9000/drogon_US.trans
+!Levels/Level9000/TransformMatMean.npz
+!Levels/Level9000/probfaction.npz
+!Levels/Level9000/US_schdl.sch
+!Levels/Level9000/MULTNUM.grdecl
+!Levels/Level9000/EQLNUM.grdecl
+!Levels/Level9000/FIPNUM.grdecl
+!Levels/Level9000/FIPZON.grdecl
+!Levels/Level9000/PVTNUM.grdecl
 Levels/Level17500/*
-!Levels/Level17500/Grid.EGRID
+!Levels/Level17500/Grid.grdecl
 !Levels/Level17500/FAULT.INC
 !Levels/Level17500/drogon_US.trans
+!Levels/Level17500/TransformMatMean.npz
+!Levels/Level17500/probfaction.npz
+!Levels/Level17500/US_schdl.sch
+!Levels/Level17500/MULTNUM.grdecl
+!Levels/Level17500/EQLNUM.grdecl
+!Levels/Level17500/FIPNUM.grdecl
+!Levels/Level17500/FIPZON.grdecl
+!Levels/Level17500/PVTNUM.grdecl
 Levels/Level104098/*
 !Levels/Level104098/Grid.grdecl
 !Levels/Level104098/FAULT.INC
