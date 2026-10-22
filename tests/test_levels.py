@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from drogon_exp.levels import cell_corners, facies_probabilities, grandy_volume
+from drogon_levels import cell_corners, facies_probabilities, grandy_volume
 
 
 def box_geometry(nx, ny, nz, top=1000.0, thickness=10.0):

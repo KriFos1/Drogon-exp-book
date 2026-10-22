@@ -211,14 +211,14 @@ __marimo__/
 priors/
 Levels/
 plots/
-*/Results/
-*/DROGON.mako
-*/Crashdump/
-*/En_*/
-*/emergency_dump
-*/debug_analysis_step_*.npz
-*/sim_results.p
-*/why_iter_loop_stopped.p
+# Method folders: only the run configuration and the plotting scripts are tracked.
+ES-MDA/*
+ES-MDA-loc/*
+MLHES-MDA/*
+SMLES/*
+!*/drogon.toml
+!*/plot_data.py
+!*/plot_parameters.py
 
 # Include files unused by the fixed-grid Drogon deck.
 include/edit/*

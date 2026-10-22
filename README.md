@@ -1,68 +1,96 @@
 # Drogon seismic-assisted history-matching experiments
 
 Reproduction code for the realistic example (Section 5.1) of *Subsurface Data
-Assimilation: Theory and Applications*. The original working directory was
-`Jupiter2:~/bookchapter/DROGON_w_seis/`.
+Assimilation: Theory and Applications*.
 
-The experiments run OPM Flow on the Drogon model, the open-petro-elastic PEM
-through SimulatorWrap, PET's ES-MDA and multilevel hybrid ES-MDA, and an
-experiment-local SMLES scheme. Observation data are frozen inputs; no
+The four runs behind the chapter's Drogon figures were made on the NORCE HPC
+in November 2025 (`/cluster/work/users/krfo/DROGON/`). Their well-rate
+figures match the chapter pixel for pixel. This repository reruns them with
+the same configuration, code versions, Python environment and simulator
+build:
+
+| Chapter figures | Method | Original run | Ensemble sizes | Flow MPI ranks |
+|---|---|---|---|---:|
+| 20–22 | `ES-MDA` | `ES-MDA-SIM2SEIS` | 100 | 2 |
+| 23–25 | `ES-MDA-loc` | `ES-MDA-loc-SIM2SEIS` | 100 | 1 |
+| 26–28 | `MLHES-MDA` | `ML_ES-MDA-SIM2SEIS` | `[1973, 191, 50, 30]` | 2 |
+| 29–31 | `SMLES` | `ML-SEQ_ES-MDA-SIM2SEIS` | `[4933, 953, 502, 100]` | 1 |
+
+Each method folder holds the run's original `drogon.toml` (only the PEM
+config path changed, and unused restart/debug dumps switched off) and its
+original plotting scripts. Observation data are frozen inputs; no
 observation-generation step is part of setup or the run scripts.
-
-## Experiments
-
-| Method | Scheme / analysis | Ensemble allocation | Deck |
-|---|---|---:|---|
-| ES-MDA | `esmda` / `approx`, 4 equal-weight steps | 100 | `DROGON.mako` |
-| ES-MDA + adaptive localization | `esmda` / `approx`, 4 steps | 100 | `DROGON.mako` |
-| MLHES-MDA | `esmda` / `hybrid`, 4 steps | `[1973, 191, 50, 30]` | `DROGON_ML.mako` |
-| SMLES | local `smles` / `approx`, sequential levels | `[4933, 953, 502, 100]` | `DROGON_ML.mako` |
-
-The four fidelity levels have 300, 9,000, 17,500 and 104,098 cells (300,
-8,999, 17,487 and 73,496 active in the grid files). The data are the oil and
-water rates of producers A1–A4 and three 4D acoustic-impedance vintages.
 
 ## Requirements
 
-- Linux x86-64 with Python 3.12
-- OPM Flow **2025.10** (`flow`) first on `PATH`, the version of the original
-  runs; `run_experiment.py` stops if it finds another version. The Ubuntu
-  packages of 2025.10 are no longer in the OPM PPA; the official container
-  image `docker.io/openporousmedia/opmreleases:2025.10` contains it. Run on
-  the same Drogon deck, that build reproduces the summary of an original
-  member exactly.
-- An MPI runtime. The number of MPI ranks changes Flow's time stepping and
-  hence the forecasts (by up to about 1% in the well rates), so the configs
-  keep the original settings: ES-MDA runs Flow without MPI, the other
-  methods use `mpirun --bind-to none -np 2`.
-- Memory and disk for the priors, which are float64 like the originals:
-  0.4 GB (`prior_100`), 9.3 GB (`prior_2244`) and 27 GB (`prior_6488`)
-- A C/C++ toolchain if `resdata` has to build from source
+- Linux x86-64 and **Python 3.10** (the runs used 3.10.4; for example
+  `uv python install 3.10.4`).
+- **OPM Flow 2024.10, the NORCE HPC build** (EasyBuild
+  `opm-simulators/2024.10-foss-2022a`) with its OpenMPI 4.1.4, as `flow` and
+  `mpirun` first on `PATH`. `run_experiment.py` refuses other Flow versions.
+  Other 2024.10 builds (for example the Ubuntu package) reproduce the 300- and
+  9,000-cell levels exactly but change 17,500-cell and fine-grid forecasts by
+  up to about 2%. A relocatable copy of the HPC build (binary, libraries,
+  OpenMPI, FlexiBLAS/OpenBLAS backend; `bin/flow` and `bin/mpirun` wrappers)
+  runs on other Linux machines with a newer glibc; `scripts/flow/make_hpc_bundle.sh`
+  creates it on the HPC. Put its `bin` first on `PATH`.
+- Disk: 0.4 GB (`prior_100`), 9.3 GB (`prior_2244`) and 20 GB (`prior_4933`)
+  for the priors; run outputs take about 4 GB each for ES-MDA and
+  ES-MDA-loc, 26 GB for MLHES-MDA and 40 GB for SMLES.
+- Memory: the original multilevel jobs reserved 400 GB.
 
-`pyproject.toml` pins PET to the public commit this package was written
-against and SimulatorWrap to `df94874` (branch `resdata_reader`), the
-forward-model version of the original multilevel run (see below).
+`requirements.txt` pins the Python environment of the original runs:
+PET (`KriFos1/PET` `d478e32`, installed separately by `setup.sh`),
+SimulatorWrap `d8c4734`, numpy 1.26.4, scipy 1.14.1 and every other package.
 
 ## Setup and run
 
 ```bash
-./setup.sh
-```
-
-Setup creates `.venv`, installs the package, builds `Levels/`, generates the
-seeded priors in `priors/`, and runs ES-MDA (set `EXPERIMENT=MLHES-MDA` or
-another method name to choose the final run). Then:
-
-```bash
+./setup.sh                           # PYTHON=/path/to/python3.10 if needed
 source .venv/bin/activate
 python scripts/run_experiment.py ES-MDA-loc
-./run_all.sh            # all methods, skipping finished ones, then plots
+./run_all.sh                         # all methods, skipping finished ones, then figures
 ```
 
-`DROGON_PARALLEL` sets the number of concurrent members and `DROGON_MPI` the
-MPI command passed to Flow. Results are written to `<method>/Results/` and
-marked with the forward-model version; results of other versions are not
-overwritten or mixed.
+Setup creates `.venv`, installs the pinned environment, builds `Levels/`,
+writes the seeded priors to `priors/`, and runs ES-MDA (set
+`EXPERIMENT=SMLES` or another method to choose). `run_experiment.py` links the
+observations, the prior, the facies probabilities and the deck into the method
+folder and runs the statements of the original `run_script.py`. Results stay
+in the method folder, as in the original runs. `DROGON_PARALLEL` overrides the
+number of simultaneous Flow runs (the originals used 100–250).
+
+`scripts/make_figures.py` runs each method's original `plot_data.py` and
+`plot_parameters.py`: well-rate PNGs, and GRDECL fields of the posterior AI
+residual/standard deviation and porosity/permeability mean/standard deviation,
+from which the chapter's 3D panels were drawn in ResInsight.
+
+## Bit-for-bit reproduction
+
+Checked against the original runs on an Intel Xeon Gold 6254 workstation
+(October 2026):
+
+| Item | Result |
+|---|---|
+| `Levels/` (grids, maps, regions, faults, schedules, facies) | Byte-identical |
+| Observations, include files, PEM config, decks | Byte-identical |
+| `prior_100`, `prior_2244` from `make_prior.py` | Identical (`prior_100` to ≤ 2e-15) |
+| `prior_4933` from `make_prior.py` | Differs by ~1e-7 (rounding level); its exact generation environment is unknown |
+| Original prior members rerun with the HPC Flow build, two per level and method | Well rates and AI identical (≤ 7e-7 relative; mostly 0) |
+| Figures and GRDECL fields from the original ES-MDA outputs via `make_figures.py` | Pixel- and byte-identical to the chapter and the run |
+
+Numerical libraries choose CPU-specific kernels, and the last digits matter
+for long assimilation chains. The runs were made on AMD EPYC (Zen 3) CPUs, so
+`run_experiment.py` selects the same OpenBLAS kernels and disables numpy's
+AVX-512 loops (`OPENBLAS_CORETYPE=ZEN`, `NPY_DISABLE_CPU_FEATURES`; harmless
+on AMD), and `make_prior.py` uses for each prior the kernels of the machine
+that generated the original.
+
+Flow occasionally fails to start under heavy load; PET then replaces the
+member by a randomly chosen successful one and logs "has been replaced" in
+`pet_logger.log`. The original MLHES and SMLES runs replaced 15 and 25 prior
+members this way, so full reruns match them statistically rather than member
+for member.
 
 ## Fidelity levels
 
@@ -79,11 +107,8 @@ overwritten or mixed.
   SATNUM of its truncation group, and -1 in the 33,126 cells with zero
   reference porosity; coarse levels take the volume average.
 
-All files in `Levels/` are byte-identical to the levels of the original runs:
-
-```bash
-.venv/bin/python scripts/validate_levels.py --original /path/to/DROGON_w_seis/Levels
-```
+`scripts/validate_levels.py --original <original Levels>` compares a build
+with the original levels.
 
 ### Why not upscaling_v2?
 
@@ -94,111 +119,45 @@ level) and placed faults with heuristics. Its volume map counted a fine cell
 only if its *centre* lies inside the coarse cell's bounding box, weighted by
 the intersection volume of the two cells' convex hulls, so inactive and
 collapsed fine cells also enter. upscaling_v2's fault-aware hybrid grids use
-integer fine-cell boundaries and exact tetrahedral overlaps; they give
-different grids and averaging matrices and hence different forecasts.
+integer fine-cell boundaries and exact tetrahedral overlaps; on the 300-cell
+grid its map differs from the original by 31%.
 
-`drogon_exp.levels.legacy_volume_map` reimplements the legacy map
-(`build_levels.py --recompute`, needs the `recompute` extra). Computed from
-the shipped grids, it matches the original maps to a median row difference of
-1e-3, with up to 0.26 in about 0.1% of coarse cells: the original maps were
-computed from the unrounded coarse geometry, which was written to
-`Grid.grdecl` with two decimals, and a perturbation of that size reproduces
-the differences. The book runs used the original maps, so they are shipped.
-The legacy region upscaling cannot be recomputed either (about 1% of coarse
-cells differ); only EQLNUM and PVTNUM affect the flow, since the MULTREGT
-multipliers are 1.
+`scripts/drogon_levels.py` reimplements the legacy map
+(`build_levels.py --recompute`; needs `trimesh==4.8.3 manifold3d==3.2.1`).
+Computed from the shipped grids it matches the original maps to a median row
+difference of 1e-3, with up to 0.26 in about 0.1% of coarse cells: the
+original maps were computed from the unrounded coarse geometry, which was
+written to `Grid.grdecl` with two decimals. The legacy region upscaling cannot
+be recomputed either (about 1% of coarse cells differ).
 
-## Forward model
+## Notes on the chapter text
 
-The forward model follows the original multilevel (MLHES) run, the one
-original run whose code can be pinned:
-
-- **Decks.** The single-level runs used `DROGON.mako`, the multilevel runs
-  `DROGON_ML.mako`, both copied from the original runs. The multilevel deck
-  upscales the state with `TransformMatMean`. Its facies list
-  `[1, 2, 3, 4, 7, …, 12]` is combined with `index + 1`, so facies 7–12 are
-  written as SATNUM 5–10 on every level; the single-level deck keeps the
-  reference numbering. Both are kept as run.
-- **4D seismic.** SimulatorWrap `df94874` computes the change in acoustic
-  impedance (vintage minus baseline) on the full grid of the simulated level,
-  sets inactive cells to 0, and scales each vintage linearly to [-1, 1].
-  NaN PEM values are replaced by the mean.
-- **Coarse to fine.** Coarse fields are mapped to the fine grid with the
-  transpose of the level's volume-average map, as the original PET option
-  `interpolate`/`interpolate_map` did, and are not rescaled.
-- **Bias correction.** PET shifts each coarse level's predicted mean to the
-  fine level's (the original `ml_error_corr: bias_corr, ens`).
-- **Observations.** `data/observations` holds the normalized observations of
-  the original multilevel run: relative AI resized to the grid by first-order
-  spline interpolation, scaled to [-1, 1] and reversed along J. Predictions
-  are not reversed.
-- **Priors.** `make_prior.py` reproduces the original priors to < 2e-6 (FFT
-  rounding; the fault multipliers are exact): `prior_100` draws one
-  realization at a time as the single-level runs did, `prior_2244` and
-  `prior_6488` draw all realizations of a field at once as the multilevel
-  runs did. The two generators give different members for the same seed.
-
-## Validation against the original runs
-
-Checked on Jupiter2 against the original working directory (October 2026):
-
-| Item | Result |
-|---|---|
-| `Levels/` (grids, maps, regions, faults, schedules, facies) | Byte-identical |
-| Priors (`make_prior.py`) | ≤ 2e-6 from the original files; the original environment itself now gives the same values, so the stored priors came from an environment state that no longer exists |
-| Flow 2025.10 container build vs. original Ubuntu package, same deck and ranks | Identical summary |
-| Original MLHES prior members rerun through this forward model (two per level) | Well rates identical; AI change ≤ 1.3e-6 (fine) and ≤ 1e-15 (coarse, after the bias shift) |
-| Original ES-MDA prior members 0 and 1, rendered with `DROGON.mako` | Member 0 identical; member 1 differs by up to 1.7% in water rates although reruns here are bit-identical |
-| upscaling_v2 exact overlap on the archived 300-cell grid | 31% (relative Frobenius norm) from the original map; 51,245 of its 155,580 entries absent |
-
-Full assimilation runs are therefore reproduced statistically, not bit for
-bit: Flow's adaptive time stepping turns the 1e-7 prior differences into
-small differences in the forecasts.
-
-## Differences from the original runs
-
-- **The original runs did not share one forward model.** The SimulatorWrap
-  seismic code changed several times in November 2025. The surviving
-  single-level ES-MDA run (2 Nov) used `b31a699`, which scaled predictions
-  to [0, 1] while the observations are in [-1, 1]; a localized ES run
-  (`ES-loc-SIM2SEIS`) used `db72f12`, whose swapped min/max made the predicted
-  AI almost constant. The multilevel run used `df94874` (its fine-level
-  predictions span [-1, 1] and correlate negatively with the observations, as
-  vintage-minus-baseline does). `d8c4734`, which reverses the sign "to match
-  data polarity", was committed after that run's prior forecast. This package
-  uses `df94874` for all four methods.
-- **Unknown original runs.** The run behind the chapter's localized ES-MDA
-  figures and the SMLES run were not found in the original working
-  directory. Localization uses the settings of the surviving localized run
-  (cutoff 0.75, sigmoid taper).
-- **PET.** The original runs used `KriFos1/PET` (`load_dataframe`,
-  `d478e32`); this package runs current public PET with the same scheme
-  settings.
-- **Active cells.** The chapter reports 70,972 active fine cells (those with
-  non-zero reference porosity); the grid's ACTNUM has 73,496.
-
-## Plots
-
-```bash
-.venv/bin/python scripts/make_plots.py
-```
-
-Figures are written to `plots/`: prior/posterior well-rate traces, the
-final-vintage AI residual mean and predictive standard deviation, and the
-posterior porosity mean and standard deviation on the chapter's `i=18` slice.
-As in the chapter, residuals in `[-0.4, 0.4]` and standard deviations `<=0.1`
-are masked. The script only reads observations and saved results.
+- The 4D AI change is baseline minus vintage on the full grid of each level
+  (inactive cells 0), scaled to [-1, 1]; coarse fields are mapped to the fine
+  grid with the transpose of the averaging map (PET `interpolate`).
+- The observations are resized to the grid, scaled to [-1, 1] and reversed
+  along J; predictions are not reversed.
+- MLHES corrects each coarse level's predicted mean to the fine level's
+  (`ml_error_corr: bias_corr`); SMLES does not.
+- SMLES (PET `esmda_seq`) updates level by level with 3 ES-MDA steps; after
+  each update it keeps the members with the lowest pre-update data misfit and
+  forecasts them on the next level. The chapter states equal covariance
+  weights; the run used `cov_wgt = [1, 1, 1, 1]`.
+- The multilevel deck combines the facies list `[1, 2, 3, 4, 7, …, 12]` with
+  `index + 1`, so facies 7–12 are written as SATNUM 5–10 on every level; the
+  single-level deck keeps the reference numbering. Both are kept as run.
+- The chapter reports 70,972 active fine cells (non-zero reference porosity);
+  the grid's ACTNUM has 73,496.
 
 ## Repository layout
 
-- `data/observations/`: frozen observations and variances.
+- `<method>/`: `drogon.toml`, `plot_data.py`, `plot_parameters.py` of the
+  original run; outputs are written here.
+- `data/observations/`: frozen observations and variances of the runs.
 - `data/levels/`: legacy-upscaler outputs for the three coarse levels.
 - `data/pem_config_drogon.yml`: open-petro-elastic configuration.
 - `include/`: Drogon simulator inputs (Equinor, ODbL/DbCL; see the headers).
-- `scripts/build_levels.py`, `scripts/validate_levels.py`: fidelity levels.
-- `scripts/make_prior.py`: seeded prior ensembles.
-- `scripts/run_experiment.py`, `run_all.sh`: experiments.
-- `scripts/DROGON.mako`, `scripts/DROGON_ML.mako`: simulation decks.
-- `src/drogon_exp/`: simulator adapter, level helpers, memory-bounded
-  adaptive localization, and the SMLES scheme.
-- `<method>/config.yaml`: PET configurations.
+- `scripts/`: level build and validation, prior generation, the two decks,
+  the experiment runner and the figure script; `scripts/flow/` makes the
+  relocatable copy of the HPC Flow build.
+- `requirements.txt`, `setup.sh`, `run_all.sh`.

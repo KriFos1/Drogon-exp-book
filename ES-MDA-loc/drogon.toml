@@ -1,0 +1,269 @@
+# Configuration of the run behind the chapter figures, copied from
+# HPC:/cluster/work/users/krfo/DROGON/ES-MDA-loc-SIM2SEIS/drogon.toml. Changed: the PEM
+# config path and unused restart/debug dumps.
+[dataassim]
+restart = "no"
+daalg = ["esmda", "esmda"]
+mda = [ ["tot_assim_steps", 4], ['inflation_param', [4, 4, 4, 4] ] ]
+analysis = "approx"
+energy = 98.0
+ne = 100
+obsname = "days"
+truedataindex = "./true_data_index.csv"
+truedata = "./data.pkl"
+assimindex = "./assim_index.csv"
+datavar = "./var.pkl"
+staticvar = [
+    "permx",
+    "permy",
+    "permz",
+    "poro",
+    "satnum",
+    "f1",
+    "f2",
+    "f3",
+    "f4",
+    "f5",
+    "f6",
+]
+state = [
+    "permx",
+    "permy",
+    "permz",
+    "poro",
+    "satnum",
+    "f1",
+    "f2",
+    "f3",
+    "f4",
+    "f5",
+    "f6",
+]
+importstaticvar = "prior_100.npz"
+prior_permx = [
+    [
+        "var",
+        1.0,
+    ],
+    [
+        "grid",
+        [
+            46.0,
+            73.0,
+            31.0,
+        ],
+    ],
+    [
+        "limits", -5.0, 8.5,
+    ]
+]
+prior_permy = [
+    [
+        "var",
+        1.0,
+    ],
+    [
+        "grid",
+        [
+            46.0,
+            73.0,
+            31.0,
+        ],
+    ],
+    [
+        "limits", -5.0, 8.5,
+    ]
+]
+prior_permz = [
+    [
+        "var",
+        1.0,
+    ],
+    [
+        "grid",
+        [
+            46.0,
+            73.0,
+            31.0,
+        ],
+    ],
+    [
+        "limits", -5.0, 8.5,
+    ]
+]
+prior_poro = [
+    [
+        "var",
+        1.0,
+    ],
+    [
+        "grid",
+        [
+            46.0,
+            73.0,
+            31.0,
+        ],
+    ],
+    [
+        "limits", 0.01, 0.5,
+    ]
+]
+prior_satnum = [
+    [
+        "var",
+        1.0,
+    ],
+    [
+        "grid",
+        [
+            46.0,
+            73.0,
+            31.0,
+        ],
+    ],
+    [
+        "limits", -100000, 100000,
+    ]
+]
+prior_f1 = [
+    [
+        "var",
+        1.0,
+    ],
+    [
+        "grid",
+        [
+            1,
+            1,
+            1,
+        ],
+    ],
+    [
+    "active",
+            1
+    ]
+]
+prior_f2 = [
+    [
+        "var",
+        1.0,
+    ],
+    [
+        "grid",
+        [
+            1,
+            1,
+            1,
+        ],
+    ],
+    [
+    "active",
+            1
+    ]
+]
+prior_f3 = [
+    [
+        "var",
+        1.0,
+    ],
+    [
+        "grid",
+        [
+            1,
+            1,
+            1,
+        ],
+    ],
+    [
+    "active",
+            1
+    ]
+]
+prior_f4 = [
+    [
+        "var",
+        1.0,
+    ],
+    [
+        "grid",
+        [
+            1,
+            1,
+            1,
+        ],
+    ],
+    [
+    "active",
+            1
+    ]
+]
+prior_f5 = [
+    [
+        "var",
+        1.0,
+    ],
+    [
+        "grid",
+        [
+            1,
+            1,
+            1,
+        ],
+    ],
+    [
+    "active",
+            1
+    ]
+]
+prior_f6 = [
+    [
+        "var",
+        1.0,
+    ],
+    [
+        "grid",
+        [
+            1,
+            1,
+            1,
+        ],
+    ],
+    [
+    "active",
+            1
+    ]
+]
+tempsave = "no"
+analysisdebug = [
+    "pred_data",
+    "state",
+    "data_misfit",
+    "prev_data_misfit",
+]
+obsvarsave = "yes"
+restartsave = "no"
+datatype = "./datatyp.csv"
+localization = [
+     ["field", [46, 73, 31]],
+     ["autoadaloc", 0.75],
+     ["threshold", "fixed"],
+     ["type", "sigm"]
+     ]
+
+[fwdsim]
+reporttype = "datetime"
+reportpoint = "./reportdates.csv"
+saveforecast = "yes"
+replace = "yes"
+date_slack = 60.0
+parallel = 100
+sim_limit = 24000.0
+datatype = "./datatyp.csv"
+runfile = "drogon"
+startdate = "1/1/2018"
+pem = [
+["config", "../data/pem_config_drogon.yml"],
+["baseline", "2018-01-01"],
+["vintage", ["2018-07-01", "2019-07-01", "2020-07-01"]],
+]
+simoptions = [["mpi","mpirun --bind-to none -np 1"]]
