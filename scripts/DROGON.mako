@@ -1,13 +1,11 @@
 <%!
 import numpy as np
-import re
 from scipy.stats import norm
-from scipy import sparse
-level_path = ['../Levels/Level300/','../Levels/Level9000/','../Levels/Level17500/', '../Levels/Level104098/']
+dim = 46*73*31
 
 def _extract_satnum(prob,g):
     unif_g = norm.cdf(g)
-    prob_fields = np.stack([prob[f'p{i}'].reshape(unif_g.shape) for i in [1,2,3,4,7,8,9,10,11,12]], axis=-1)
+    prob_fields = np.stack([prob[f'p{i}'].reshape(unif_g.shape) for i in range(1, 12)], axis=-1)
     cumulative_probs = np.cumsum(prob_fields, axis=-1)
 
     # Fully vectorized assignment using broadcasting
@@ -36,35 +34,9 @@ def _extract_satnum(prob,g):
 %>
 
 <%
-dim = int(re.search(r'Level(\d+)', level_path[level]).group(1))
-if level != 3:
-    T = sparse.load_npz(f'{level_path[level]}TransformMatMean.npz')
-    permx_val = T.dot(permx)
-    permy_val = T.dot(permy)
-    permz_val = T.dot(permz)
-    poro_val = T.dot(poro)
-    satnum_tmp = T.dot(satnum)
-else:
-    permx_val = permx
-    permy_val = permy
-    permz_val = permz
-    poro_val = poro
-    satnum_tmp = satnum
-
-prob = np.load(f'{level_path[level]}probfaction.npz', allow_pickle=True)
-satnum_val = _extract_satnum(prob, satnum_tmp)
-region_files = {name: f'../{level_path[level]}{name}.grdecl'
-                for name in ('MULTNUM', 'EQLNUM', 'FIPNUM', 'FIPZON', 'PVTNUM')}
-if level == 3:
-    region_files = {
-        'MULTNUM': '../../include/grid/drogon.multnum',
-        'EQLNUM': '../../include/regions/drogon.eqlnum',
-        'FIPNUM': '../../include/regions/drogon.fipnum',
-        'FIPZON': '../../include/regions/drogon.fipzon',
-        'PVTNUM': '../../include/regions/drogon.pvtnum',
-    }
+prob = np.load('../Levels/Level104098/probfaction.npz')
+satnum_val = _extract_satnum(prob,satnum)
 %>
-
 -- This reservoir simulation deck is made available under the Open Database
 -- License: http://opendatacommons.org/licenses/odbl/1.0/. Any rights in
 -- individual contents of the database are licensed under the Database Contents
@@ -192,61 +164,61 @@ PINCH
  3*  ALL  /
 
 INCLUDE
-${f"'../{level_path[level]}Grid.grdecl' /"} --exported by rms
+ '../../include/grid/drogon.grid' / --exported by rms
 
 INCLUDE
-${f"'../{level_path[level]}FAULT.INC' /"} --exported by rms
+ '../../include/grid/drogon.faults' / --exported by rms
 
 PERMX
 % for i in range(dim):
-% if permx_val[i] > 8.5:
+% if permx[i] > 8.5:
 ${"%.9f" %(np.exp(8.5))}
-% elif permx_val[i] < -5:
+% elif permx[i] < -5:
 ${"%.9f" %(np.exp(-5))}
 % else:
-${"%.9f" %(np.exp(permx_val[i]))}
+${"%.9f" %(np.exp(permx[i]))}
 % endif
 % endfor
 /
 
 PERMY
 % for i in range(dim):
-% if permy_val[i] > 8.5:
+% if permy[i] > 8.5:
 ${"%.9f" %(np.exp(8.5))}
-% elif permy_val[i] < -5:
+% elif permy[i] < -5:
 ${"%.9f" %(np.exp(-5))}
 % else:
-${"%.9f" %(np.exp(permy_val[i]))}
+${"%.9f" %(np.exp(permy[i]))}
 % endif
 % endfor
 /
 
 PERMZ
 % for i in range(dim):
-% if permz_val[i] > 8.5:
+% if permz[i] > 8.5:
 ${"%.9f" %(np.exp(8.5))}
-% elif permz_val[i] < -5:
+% elif permz[i] < -5:
 ${"%.9f" %(np.exp(-5))}
 % else:
-${"%.9f" %(np.exp(permz_val[i]))}
+${"%.9f" %(np.exp(permz[i]))}
 % endif
 % endfor
 /
 
 PORO
 % for i in range(dim):
-% if poro_val[i] > 0.5:
+% if poro[i] > 0.5:
 ${"0.5"}
-% elif poro_val[i] < 0.01:
+% elif poro[i] < 0.01:
 ${"0.01"}
 % else:
-${"%.9f" %(poro_val[i])}
+${"%.9f" %(poro[i])}
 % endif
 % endfor
 /
  
 INCLUDE
-${f"'{region_files['MULTNUM']}' /"}
+ '../../include/grid/drogon.multnum' / --exported by rms
 
 INCLUDE
  '../../include/grid/drogon.multregt' / --from ert template
@@ -265,7 +237,8 @@ EDIT
 -- =============================================================================
 
 INCLUDE
-${f"'../{level_path[level]}drogon_US.trans' /"}
+ '../../include/edit/drogon.trans' / --exported by rms
+
 
 -- =============================================================================
 PROPS
@@ -296,13 +269,13 @@ REGIONS
 -- =============================================================================
 
 INCLUDE
-${f"'{region_files['EQLNUM']}' /"}
+ '../../include/regions/drogon.eqlnum' / --exported by rms
 
 INCLUDE
-${f"'{region_files['FIPNUM']}' /"}
+ '../../include/regions/drogon.fipnum' / --exported by rms
 
 INCLUDE
-${f"'{region_files['FIPZON']}' /"}
+ '../../include/regions/drogon.fipzon' / --exported by rms
 
 SATNUM
 % for val in satnum_val:
@@ -314,7 +287,8 @@ ${f'{int(val)}'}
 -- '../../include/regions/drogon.satnum' / --exported by rms
 
 INCLUDE
-${f"'{region_files['PVTNUM']}' /"}
+ '../../include/regions/drogon.pvtnum' / --exported by rms
+
 
 -- =============================================================================
 SOLUTION
@@ -365,4 +339,5 @@ SCHEDULE
 -- =============================================================================
 
 INCLUDE
-${f"'../{level_path[level]}US_schdl.sch' /"}
+ '../../include/schedule/drogon_hist.sch' / -- exported by rms
+

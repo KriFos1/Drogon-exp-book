@@ -36,7 +36,8 @@ simulator:
   sim_limit: 24000
   parallel: 8
   datatype: ../data/observations/datatyp.csv
-  simoptions: [[mpi, "mpirun --bind-to none -np 2"]]
+  # The original ES-MDA members ran Flow without MPI; the rank count changes
+  # Flow's time stepping and hence the forecasts.
   pem:
     - [config, ../data/pem_config_drogon.yml]
     - [baseline, "2018-01-01"]
