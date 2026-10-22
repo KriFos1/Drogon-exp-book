@@ -1,103 +1,83 @@
-"""Run one Drogon chapter experiment with latest PET and SimulatorWrap."""
+"""Run one Drogon chapter experiment as the original run did.
+
+The method folder holds the original ``drogon.toml``. The shared inputs are
+linked into it under the names that file uses, and the assimilation runs with
+the statements of the original ``run_script.py``.
+"""
 
 from __future__ import annotations
 
 import argparse
 import os
-from pathlib import Path
+import re
 import shutil
 import subprocess
-
-import numpy as np
-from input_output import read_config
-from pipt import pipt_init
-from drogon_exp.simulator import DrogonFlowSim2Seis
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-LEVELS = (300, 9000, 17500, 104098)
 EXPERIMENTS = ("ES-MDA", "ES-MDA-loc", "MLHES-MDA", "SMLES")
 MULTILEVEL = {"MLHES-MDA", "SMLES"}
-LEVEL_SOURCE = "book-forward-model-2025-11"
+OBSERVATIONS = ("data.pkl", "var.pkl", "assim_index.csv", "datatyp.csv", "reportdates.csv", "true_data_index.csv")
+FLOW_VERSION = "flow 2024.10"
+# The runs were made on AMD EPYC (Zen 3) CPUs. Numerical libraries pick CPU
+# specific kernels, so use the same ones (OpenBLAS Zen kernels, no AVX-512
+# numpy loops) on other x86-64 CPUs. Set before numpy is imported; Flow and
+# the PEM workers inherit them.
+CPU_ENV = {
+    "OPENBLAS_CORETYPE": "ZEN",
+    "NPY_DISABLE_CPU_FEATURES": "AVX512F AVX512CD AVX512_SKX AVX512_CLX AVX512_CNL AVX512_ICL "
+                                "AVX512_KNL AVX512_KNM AVX512VNNI",
+}
+
+
+def link(target: Path, name: Path) -> None:
+    if name.is_symlink() or name.exists():
+        name.unlink()
+    name.symlink_to(os.path.relpath(target, name.parent))
+
+
+def stage(folder: Path) -> None:
+    """Link data, prior, facies probabilities and the deck into the method folder."""
+    for name in OBSERVATIONS:
+        link(ROOT / "data" / "observations" / name, folder / name)
+    prior = re.search(r'^importstaticvar\s*=\s*"([^"]+)"', (folder / "drogon.toml").read_text(), re.M).group(1)
+    if not (ROOT / "priors" / prior).is_file():
+        raise SystemExit(f"Missing priors/{prior}; run scripts/make_prior.py first")
+    link(ROOT / "priors" / prior, folder / prior)
+    # The single-level deck reads the fine facies probabilities from the run folder.
+    link(ROOT / "Levels" / "Level104098" / "probfaction.npz", folder / "satnum_probability_fields.npz")
+    template = "DROGON_ML.mako" if folder.name in MULTILEVEL else "DROGON.mako"
+    shutil.copy2(ROOT / "scripts" / template, folder / "DROGON.mako")
 
 
 def run(name: str) -> None:
-    if name not in EXPERIMENTS:
-        raise SystemExit(f"Unknown experiment {name!r}; choose from {', '.join(EXPERIMENTS)}")
-
-    version = subprocess.run(["flow", "--version"], capture_output=True, text=True, check=True).stdout
-    if "flow 2025.10" not in version:
-        raise SystemExit(f"The book runs require OPM Flow 2025.10; found {version.strip()!r}")
-
-    if name == "SMLES":
-        import drogon_exp.smles  # register the public-PET-compatible sequential scheme
-
+    version = subprocess.run(["flow", "--version"], capture_output=True, text=True).stdout
+    if FLOW_VERSION not in version:
+        raise SystemExit(f"The book runs used OPM Flow 2024.10; found {version.strip()!r}")
     folder = ROOT / name
-    result_dir = folder / "Results"
-    source_marker = result_dir / "level_inputs.txt"
-    if (result_dir / "posterior_state_estimate.npz").exists() and (
-        not source_marker.exists() or source_marker.read_text().strip() != LEVEL_SOURCE
-    ):
-        raise SystemExit(f"{name} has results from another forward-model version; move Results aside before rerunning")
-    # The original single-level and multilevel runs used different decks.
-    template = "DROGON_ML.mako" if name in MULTILEVEL else "DROGON.mako"
-    shutil.copy2(ROOT / "scripts" / template, folder / "DROGON.mako")
-    old_cwd = Path.cwd()
+    stage(folder)
     os.chdir(folder)
-    try:
-        keys_da, keys_sim, keys_en = read_config.read("config.yaml")
-        if os.environ.get("DROGON_PARALLEL"):
-            keys_sim["parallel"] = int(os.environ["DROGON_PARALLEL"])
-        if os.environ.get("DROGON_MPI"):
-            keys_sim["simoptions"] = [["mpi", os.environ["DROGON_MPI"]]]
 
-        transform_paths = [str(ROOT / "Levels" / f"Level{count}" / "TransformMatMean.npz")
-                           for count in LEVELS]
-        sim = DrogonFlowSim2Seis(
-            keys_sim,
-            level_transforms=transform_paths,
-            multilevel=name in MULTILEVEL,
-        )
-        scheme = pipt_init.init_da(keys_da, keys_en, sim)
-        result_dir.mkdir(exist_ok=True)
+    # The original run_script.py:
+    from pipt.loop.assimilation import Assimilate
+    from subsurface.multphaseflow.flow_rock import flow_equinor_sim2seis
+    from input_output import read_config
+    from pipt import pipt_init
+    import numpy as np
 
-        if name == "MLHES-MDA":
-            original_after_prior = scheme.after_prior_forecast
-
-            def save_multilevel_prior():
-                original_after_prior()
-                frames = scheme.ensemble.sim_data
-                fine = frames[-1] if isinstance(frames, list) else frames
-                fine.to_pickle(result_dir / "prior_forecast.pkl")
-
-            scheme.after_prior_forecast = save_multilevel_prior
-        elif name == "SMLES":
-            # SMLES starts its recursion on the coarsest prior, so make the
-            # fine-grid prior forecast separately for the time-series figures.
-            fine_prior = scheme.ensemble.enX[-1]
-            scheme._forecast_level(fine_prior, len(LEVELS) - 1)
-            scheme.ensemble.sim_data.to_pickle(result_dir / "prior_forecast.pkl")
-
-        result = scheme.run_assimilation()
-
-        if name == "MLHES-MDA":
-            # PET's ordinary result writer takes one ensemble matrix; save the
-            # finest-fidelity posterior and forecast in its standard artifact
-            # names for plotting.
-            fine_state = scheme.ensemble.enX[-1]
-            np.savez(result_dir / "posterior_state_estimate.npz",
-                     **scheme.ensemble.state_layout.to_dict(fine_state))
-            forecast = scheme.ensemble.sim_data
-            if isinstance(forecast, list):
-                forecast = forecast[-1]
-            forecast.to_pickle(result_dir / "posterior_forecast.pkl")
-
-        source_marker.write_text(LEVEL_SOURCE + "\n")
-        print(f"{name}: {result.prior_data_misfit:.6g} -> {result.data_misfit:.6g}")
-    finally:
-        os.chdir(old_cwd)
+    np.random.seed(10)
+    kd, kf, _ = read_config.read_toml("drogon.toml")
+    if os.environ.get("DROGON_PARALLEL"):
+        kf["parallel"] = int(os.environ["DROGON_PARALLEL"])
+    sim = flow_equinor_sim2seis(kf)
+    analysis = pipt_init.init_da(kd, kd, sim)
+    assimilation = Assimilate(analysis)
+    assimilation.run()
 
 
 def main() -> None:
+    for key, value in CPU_ENV.items():
+        os.environ.setdefault(key, value)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("experiment", choices=EXPERIMENTS)
     run(parser.parse_args().experiment)

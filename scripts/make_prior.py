@@ -3,14 +3,23 @@
 Two generators were used, and they give different members for the same seed:
 the single-level runs drew one realization at a time (``prior_100.npz``),
 the multilevel runs drew all realizations of a field at once
-(``prior_2244.npz`` and ``prior_6488.npz``). Both are reproduced here in
-float64; regenerated fields differ from the original files by FFT rounding
-(< 1e-6) only.
+(``prior_2244.npz`` for MLHES-MDA, ``prior_4933.npz`` for SMLES). This is the
+original ``gen_prior.py`` of those runs.
+
+The results depend in the last digits on the CPU kernels numpy and OpenBLAS
+choose. ``prior_100`` and ``prior_4933`` were generated on AMD EPYC (Zen 3)
+CPUs, ``prior_2244`` on an Intel Xeon with AVX-512. Each prior is therefore
+generated in a subprocess with the matching kernel selection (on CPUs that
+support it). On an Intel Xeon Gold 6254 this reproduces ``prior_100`` and
+``prior_2244`` exactly; ``prior_4933`` differs by about 1e-7.
 """
 
 from __future__ import annotations
 
 import argparse
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -26,7 +35,13 @@ PORO_STD = 0.065
 CORR = np.array([5, 10, 4])
 SATNUM_CORR = np.array([5, 10, 1])
 # Ensemble size -> generator used by the runs that import it.
-SIZES = {100: "member", 2244: "batch", 6488: "batch"}
+SIZES = {100: "member", 2244: "batch", 4933: "batch"}
+ZEN = {
+    "OPENBLAS_CORETYPE": "ZEN",
+    "NPY_DISABLE_CPU_FEATURES": "AVX512F AVX512CD AVX512_SKX AVX512_CLX AVX512_CNL AVX512_ICL "
+                                "AVX512_KNL AVX512_KNM AVX512VNNI",
+}
+CPU_ENV = {100: ZEN, 2244: {}, 4933: ZEN}
 
 
 def gaussian(std: float, corr: np.ndarray, members: int, mode: str) -> np.ndarray:
@@ -66,13 +81,21 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--members", type=int, nargs="*", choices=SIZES, default=list(SIZES))
     parser.add_argument("--output", type=Path, default=ROOT / "priors")
+    parser.add_argument("--child", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
+    if args.child:  # a fresh process, so numpy loaded with the CPU environment below
+        for size in args.members:
+            generate(size, SIZES[size], args.output)
+        return
     for size in args.members:
         destination = args.output / f"prior_{size}.npz"
         if destination.exists():
             print(f"Keeping existing {destination}")
             continue
-        generate(size, SIZES[size], args.output)
+        env = {key: value for key, value in os.environ.items() if key not in ZEN}
+        env.update(CPU_ENV[size])
+        subprocess.run([sys.executable, __file__, "--child", "--members", str(size), "--output", str(args.output)],
+                       env=env, check=True)
 
 
 if __name__ == "__main__":

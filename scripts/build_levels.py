@@ -10,7 +10,7 @@ are shipped in ``data/levels``, together with the volume-average maps
 probabilities of every level from the reference SATNUM.
 
 ``--recompute`` instead recomputes the maps with the legacy overlap rule
-(``drogon_exp.levels.legacy_volume_map``). The shipped grids are rounded to
+(``drogon_levels.legacy_volume_map``). The shipped grids are rounded to
 two decimals, so the recomputed maps differ slightly from those of the book
 runs (see README). The overlap computation runs one single-threaded worker per
 CPU (``--jobs`` limits this) and takes a few minutes on a many-core server.
@@ -25,7 +25,7 @@ from pathlib import Path
 import numpy as np
 from scipy import sparse
 
-from drogon_exp.levels import (
+from drogon_levels import (
     facies_probabilities,
     legacy_fine_geometry,
     legacy_volume_map,

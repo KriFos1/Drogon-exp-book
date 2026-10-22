@@ -34,7 +34,7 @@ def _extract_satnum(prob,g):
 %>
 
 <%
-prob = np.load('../Levels/Level104098/probfaction.npz')
+prob = np.load('satnum_probability_fields.npz')
 satnum_val = _extract_satnum(prob,satnum)
 %>
 -- This reservoir simulation deck is made available under the Open Database

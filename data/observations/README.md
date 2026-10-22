@@ -1,11 +1,10 @@
 # Frozen observations
 
-`data.pkl` and `var.pkl` are copied unchanged from the final normalized-input
-variant at `Jupiter2:~/bookchapter/DROGON_w_seis/ML_ES-MDA-SIM2SEIS/`. This is
-the Jupiter2 run variant whose three acoustic-impedance vintages are scaled to
-`[-1, 1]`, as described in Chapter 5.1. It is used as the common observation
-set for all four methods. The setup scripts do not import SEG-Y files or call
-the original observation-generation program.
-
-The accompanying date, index, and datatype files are from that same run
-directory. Preserve the pickle files as the frozen inference inputs.
+`data.pkl`, `var.pkl`, `assim_index.csv`, `datatyp.csv` and `reportdates.csv`
+are copied unchanged from the four runs behind the chapter figures
+(`HPC:/cluster/work/users/krfo/DROGON/{ES-MDA-SIM2SEIS,ES-MDA-loc-SIM2SEIS,
+ML_ES-MDA-SIM2SEIS,ML-SEQ_ES-MDA-SIM2SEIS}`), which all used the same files.
+The three acoustic-impedance vintages are resized to the grid, scaled to
+`[-1, 1]` and reversed along J, as described in Chapter 5.1. The setup scripts
+do not import SEG-Y files or call the original observation-generation program.
+Preserve the pickle files as the frozen inference inputs.
