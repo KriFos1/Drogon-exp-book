@@ -8,8 +8,8 @@ for experiment in ES-MDA ES-MDA-loc MLHES-MDA SMLES; do
   result="${ROOT}/${experiment}/Results/posterior_state_estimate.npz"
   if [[ -f "${result}" ]]; then
     marker="${ROOT}/${experiment}/Results/level_inputs.txt"
-    if [[ ! -f "${marker}" || "$(<"${marker}")" != "archived-jupiter2-levels" ]]; then
-      printf '%s has results from a different level set; move Results aside before rerunning\n' "${experiment}" >&2
+    if [[ ! -f "${marker}" || "$(<"${marker}")" != "book-forward-model-2025-11" ]]; then
+      printf '%s has results from another forward-model version; move Results aside before rerunning\n' "${experiment}" >&2
       exit 1
     fi
     printf 'Skipping %s: posterior artifact already exists\n' "${experiment}"

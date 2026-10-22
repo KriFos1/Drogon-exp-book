@@ -12,7 +12,7 @@ source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -e .
 
-python scripts/check_archived_levels.py
+python scripts/build_levels.py
 python scripts/make_prior.py
 python scripts/run_experiment.py "${EXPERIMENT:-ES-MDA}"
 

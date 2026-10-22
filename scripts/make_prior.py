@@ -1,4 +1,12 @@
-"""Generate seeded Drogon state ensembles from the published prior model."""
+"""Generate the seeded Drogon prior ensembles of the book runs.
+
+Two generators were used, and they give different members for the same seed:
+the single-level runs drew one realization at a time (``prior_100.npz``),
+the multilevel runs drew all realizations of a field at once
+(``prior_2244.npz`` and ``prior_6488.npz``). Both are reproduced here in
+float64; regenerated fields differ from the original files by FFT rounding
+(< 1e-6) only.
+"""
 
 from __future__ import annotations
 
@@ -14,14 +22,20 @@ ROOT = Path(__file__).resolve().parents[1]
 GRID_DIMS = np.array([46, 73, 31])
 FIELD_SIZE = int(np.prod(GRID_DIMS))
 PERM_STD = 0.3
-PERM_CORR = np.array([5, 10, 4])
 PORO_STD = 0.065
+CORR = np.array([5, 10, 4])
 SATNUM_CORR = np.array([5, 10, 1])
+# Ensemble size -> generator used by the runs that import it.
+SIZES = {100: "member", 2244: "batch", 6488: "batch"}
 
 
-def generate(members: int, output_dir: Path, dtype=np.float32) -> Path:
-    if members < 2:
-        raise ValueError("Ensemble size must be at least two")
+def gaussian(std: float, corr: np.ndarray, members: int, mode: str) -> np.ndarray:
+    if mode == "member":
+        return np.column_stack([np.squeeze(fast_gaussian(GRID_DIMS, np.array([std]), corr)) for _ in range(members)])
+    return np.squeeze(fast_gaussian(GRID_DIMS, np.array([std]), corr, num_samples=members))
+
+
+def generate(members: int, mode: str, output_dir: Path) -> Path:
     np.random.seed(0)
     means = {
         "permx": read_file("PERMX", str(ROOT / "include/grid/drogon.perm")),
@@ -33,29 +47,24 @@ def generate(members: int, output_dir: Path, dtype=np.float32) -> Path:
         raise ValueError("Reference property arrays do not match the 46x73x31 grid")
 
     prior: dict[str, np.ndarray] = {}
-    for name in ("permx", "permy", "permz"):
-        log_mean = np.log(np.maximum(means[name], 1e-3)) - PERM_STD**2 / 2
-        values = fast_gaussian(GRID_DIMS, np.array([PERM_STD]), PERM_CORR, num_samples=members)
-        prior[name] = (values + log_mean[:, None]).astype(dtype)
-
-    porosity = fast_gaussian(GRID_DIMS, np.array([PORO_STD]), PERM_CORR, num_samples=members)
-    prior["poro"] = (porosity + means["poro"][:, None]).astype(dtype)
-    prior["satnum"] = fast_gaussian(
-        GRID_DIMS, np.array([1.0]), SATNUM_CORR, num_samples=members
-    ).astype(dtype)
+    for name in ("permx", "permy", "permz", "poro"):
+        std = PORO_STD if name == "poro" else PERM_STD
+        mean = means[name] if name == "poro" else np.log(np.maximum(means[name], 1e-3)) - std**2 / 2
+        prior[name] = np.atleast_2d(mean).T + gaussian(std, CORR, members, mode)
+    prior["satnum"] = gaussian(1.0, SATNUM_CORR, members, mode)
     for number in range(1, 7):
-        prior[f"f{number}"] = np.random.normal(0.0, 1.0, size=(1, members)).astype(dtype)
+        prior[f"f{number}"] = np.random.normal(np.array([0]), np.array([1]), size=(1, members))
 
     output_dir.mkdir(parents=True, exist_ok=True)
     destination = output_dir / f"prior_{members}.npz"
     print(f"Writing {members:,} members ({sum(x.nbytes for x in prior.values()) / 1e9:.1f} GB) to {destination}", flush=True)
-    np.savez_compressed(destination, **prior)
+    np.savez(destination, **prior)
     return destination
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--members", type=int, nargs="*", default=[100, 2244, 6488])
+    parser.add_argument("--members", type=int, nargs="*", choices=SIZES, default=list(SIZES))
     parser.add_argument("--output", type=Path, default=ROOT / "priors")
     args = parser.parse_args()
     for size in args.members:
@@ -63,7 +72,7 @@ def main() -> None:
         if destination.exists():
             print(f"Keeping existing {destination}")
             continue
-        generate(size, args.output)
+        generate(size, SIZES[size], args.output)
 
 
 if __name__ == "__main__":

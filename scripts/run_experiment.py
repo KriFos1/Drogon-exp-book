@@ -6,6 +6,7 @@ import argparse
 import os
 from pathlib import Path
 import shutil
+import subprocess
 
 import numpy as np
 from input_output import read_config
@@ -15,12 +16,17 @@ from drogon_exp.simulator import DrogonFlowSim2Seis
 ROOT = Path(__file__).resolve().parents[1]
 LEVELS = (300, 9000, 17500, 104098)
 EXPERIMENTS = ("ES-MDA", "ES-MDA-loc", "MLHES-MDA", "SMLES")
-LEVEL_SOURCE = "archived-jupiter2-levels"
+MULTILEVEL = {"MLHES-MDA", "SMLES"}
+LEVEL_SOURCE = "book-forward-model-2025-11"
 
 
 def run(name: str) -> None:
     if name not in EXPERIMENTS:
         raise SystemExit(f"Unknown experiment {name!r}; choose from {', '.join(EXPERIMENTS)}")
+
+    version = subprocess.run(["flow", "--version"], capture_output=True, text=True, check=True).stdout
+    if "flow 2025.10" not in version:
+        raise SystemExit(f"The book runs require OPM Flow 2025.10; found {version.strip()!r}")
 
     if name == "SMLES":
         import drogon_exp.smles  # register the public-PET-compatible sequential scheme
@@ -31,8 +37,10 @@ def run(name: str) -> None:
     if (result_dir / "posterior_state_estimate.npz").exists() and (
         not source_marker.exists() or source_marker.read_text().strip() != LEVEL_SOURCE
     ):
-        raise SystemExit(f"{name} has results from a different level set; move Results aside before rerunning")
-    shutil.copy2(ROOT / "scripts" / "DROGON.mako", folder / "DROGON.mako")
+        raise SystemExit(f"{name} has results from another forward-model version; move Results aside before rerunning")
+    # The original single-level and multilevel runs used different decks.
+    template = "DROGON_ML.mako" if name in MULTILEVEL else "DROGON.mako"
+    shutil.copy2(ROOT / "scripts" / template, folder / "DROGON.mako")
     old_cwd = Path.cwd()
     os.chdir(folder)
     try:
@@ -47,7 +55,7 @@ def run(name: str) -> None:
         sim = DrogonFlowSim2Seis(
             keys_sim,
             level_transforms=transform_paths,
-            multilevel=name in {"MLHES-MDA", "SMLES"},
+            multilevel=name in MULTILEVEL,
         )
         scheme = pipt_init.init_da(keys_da, keys_en, sim)
         result_dir.mkdir(exist_ok=True)
