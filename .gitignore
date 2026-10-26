@@ -208,6 +208,7 @@ __marimo__/
 
 # Reproduction outputs and large generated ensembles
 .venv/
+.venv-prior/
 priors/
 Levels/
 plots/
@@ -216,7 +217,7 @@ ES-MDA/*
 ES-MDA-loc/*
 MLHES-MDA/*
 SMLES/*
-!*/drogon.toml
+!*/config.yaml
 !*/plot_data.py
 !*/plot_parameters.py
 

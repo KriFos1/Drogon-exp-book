@@ -6,12 +6,16 @@ the multilevel runs drew all realizations of a field at once
 (``prior_2244.npz`` for MLHES-MDA, ``prior_4933.npz`` for SMLES). This is the
 original ``gen_prior.py`` of those runs.
 
-The results depend in the last digits on the CPU kernels numpy and OpenBLAS
-choose. ``prior_100`` and ``prior_4933`` were generated on AMD EPYC (Zen 3)
-CPUs, ``prior_2244`` on an Intel Xeon with AVX-512. Each prior is therefore
-generated in a subprocess with the matching kernel selection (on CPUs that
-support it). On an Intel Xeon Gold 6254 this reproduces ``prior_100`` and
-``prior_2244`` exactly; ``prior_4933`` differs by about 1e-7.
+The fields are Cholesky factors of nearly singular Gaussian covariance
+matrices applied to random numbers, so they depend on the OpenBLAS version and
+CPU kernels. Run this script with the numpy of the book runs, 1.26.4
+(OpenBLAS 0.3.23; ``requirements-prior.txt``): numpy 2.5.4 (OpenBLAS 0.3.34)
+changes the fields by up to 2e-6. ``prior_100`` and ``prior_4933`` were
+generated on AMD EPYC (Zen 3) CPUs, ``prior_2244`` on an Intel Xeon with
+AVX-512, so each prior is generated in a subprocess with the matching kernel
+selection (on CPUs that support it). On an Intel Xeon Gold 6254 this
+reproduces ``prior_100`` and ``prior_2244`` exactly; ``prior_4933`` differs
+by about 1e-7.
 """
 
 from __future__ import annotations
@@ -34,6 +38,9 @@ PERM_STD = 0.3
 PORO_STD = 0.065
 CORR = np.array([5, 10, 4])
 SATNUM_CORR = np.array([5, 10, 1])
+# Variables in the order of the original files, which sets the order of the state vector.
+ORDER = ("poro", "permx", "permy", "permz", "satnum", "f1", "f2", "f3", "f4", "f5", "f6")
+NUMPY_VERSION = "1.26.4"
 # Ensemble size -> generator used by the runs that import it.
 SIZES = {100: "member", 2244: "batch", 4933: "batch"}
 ZEN = {
@@ -73,7 +80,7 @@ def generate(members: int, mode: str, output_dir: Path) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     destination = output_dir / f"prior_{members}.npz"
     print(f"Writing {members:,} members ({sum(x.nbytes for x in prior.values()) / 1e9:.1f} GB) to {destination}", flush=True)
-    np.savez(destination, **prior)
+    np.savez(destination, **{name: prior[name] for name in ORDER})
     return destination
 
 
@@ -83,6 +90,9 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=ROOT / "priors")
     parser.add_argument("--child", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
+    if np.__version__ != NUMPY_VERSION:
+        raise SystemExit(f"The book priors need numpy {NUMPY_VERSION} (found {np.__version__}); "
+                         "use the environment of requirements-prior.txt (see setup.sh)")
     if args.child:  # a fresh process, so numpy loaded with the CPU environment below
         for size in args.members:
             generate(size, SIZES[size], args.output)

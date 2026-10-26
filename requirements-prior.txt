@@ -1,0 +1,7 @@
+# Environment for scripts/make_prior.py (Python 3.12). The prior fields are
+# Cholesky factors of nearly singular covariance matrices applied to random
+# numbers; numpy 1.26.4 (OpenBLAS 0.3.23), the numpy of the book runs,
+# reproduces the original priors. setup.sh installs it in .venv-prior.
+geostat @ git+https://github.com/Python-Ensemble-Toolbox/Geostatistics@3f9f0c876815db140fae3404d322892190cb6728
+numpy==1.26.4
+scipy==1.14.1
