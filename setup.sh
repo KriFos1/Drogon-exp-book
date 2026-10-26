@@ -4,21 +4,25 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${ROOT}"
 
-# The book runs used Python 3.10.4.
-PYTHON="${PYTHON:-python3.10}"
+PYTHON="${PYTHON:-python3.12}"
 if [[ ! -d .venv ]]; then
   "${PYTHON}" -m venv .venv
 fi
 source .venv/bin/activate
-python -m pip install pip==22.0.4
+# The exact environment that reproduces the book runs.
+python -m pip install pip==26.2.1
 python -m pip install -r requirements.txt
-# PET's setup.py only lists top-level packages, so it works as an editable
-# install only; --no-deps because requirements.txt pins its dependencies.
-python -m pip install --no-deps --src .venv/src \
-  -e "git+https://github.com/KriFos1/PET.git@d478e325dc1a146a25703b44319605f2820130a8#egg=PET"
+python -m pip install --no-deps -e .
+
+# The priors need the numpy of the book runs (see scripts/make_prior.py).
+if [[ ! -d .venv-prior ]]; then
+  "${PYTHON}" -m venv .venv-prior
+fi
+.venv-prior/bin/python -m pip install pip==26.2.1
+.venv-prior/bin/python -m pip install -r requirements-prior.txt
 
 python scripts/build_levels.py
-python scripts/make_prior.py
+.venv-prior/bin/python scripts/make_prior.py
 python scripts/run_experiment.py "${EXPERIMENT:-ES-MDA}"
 
 printf '\nSetup and %s run complete. Activate with: source .venv/bin/activate\n' "${EXPERIMENT:-ES-MDA}"

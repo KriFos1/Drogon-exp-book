@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "drogon-exp-book"
+version = "1.0.0"
+description = "Drogon example (Section 5.1) from chapter 'Multilevel data assimilation' in 'Subsurface Data Assimilation: Theory and Applications'"
+readme = "README.md"
+requires-python = "==3.12.*"
+authors = [{ name = "Kristian Fossum", email = "krfo@norceresearch.no" }]
+dependencies = [
+    # Python Ensemble Toolbox (PET): data assimilation; drogon_exp.legacy adds
+    # the analyses of the PET version that produced the book runs
+    "PET @ git+https://github.com/Python-Ensemble-Toolbox/PET.git@86d7893097cbdca8e9b09ca1fa41fac320ed1f81",
+    # Simulator wrappers (OPM Flow + open-petro-elastic sim2seis). The commit
+    # the book runs used: 4D acoustic-impedance change as baseline minus
+    # vintage on the full grid, scaled to [-1, 1].
+    "subsurface @ git+https://github.com/Python-Ensemble-Toolbox/SimulatorWrap.git@d8c4734b2581a4c7c02e8ba7b72e4a8a37e30dd4",
+    "open-petro-elastic==1.4.1",
+    # Gaussian random fields of the priors
+    "geostat @ git+https://github.com/Python-Ensemble-Toolbox/Geostatistics@3f9f0c876815db140fae3404d322892190cb6728",
+    # Versions of the environment that reproduces the book runs; the complete
+    # environment, including indirect dependencies, is requirements.txt.
+    "numpy==2.5.4",
+    "scipy==1.18.1",
+    "pandas==3.0.6",
+    # The book runs' version: the original plotting scripts render pixel-identical PNGs with it
+    "matplotlib==3.10.7",
+    # open-petro-elastic imports pkg_resources, which setuptools 81 removed
+    "setuptools==80.10.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest==9.1.1"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

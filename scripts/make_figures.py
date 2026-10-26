@@ -14,10 +14,26 @@ import os
 import runpy
 from pathlib import Path
 
+import yaml
+
 os.environ.setdefault("MPLBACKEND", "Agg")
 ROOT = Path(__file__).resolve().parents[1]
 FINISHED = {"ES-MDA": "posterior_forecast.npz", "ES-MDA-loc": "posterior_forecast.npz",
             "MLHES-MDA": "posterior_forecast.p", "SMLES": "posterior_forecast.p"}
+
+
+def link(target: Path, name: Path) -> None:
+    if name.is_symlink() or name.exists():
+        name.unlink()
+    name.symlink_to(os.path.relpath(target, name.parent))
+
+
+def stage(folder: Path) -> None:
+    """Link the report dates, assimilation indices and prior, which the scripts read from the run folder."""
+    for name in ("reportdates.csv", "assim_index.csv"):
+        link(ROOT / "data" / "observations" / name, folder / name)
+    prior = (folder / yaml.safe_load((folder / "config.yaml").read_text())["ensemble"]["importstate"]).resolve()
+    link(prior, folder / prior.name)
 
 
 def main() -> None:
@@ -26,6 +42,7 @@ def main() -> None:
         if not (folder / marker).is_file():
             print(f"Skipping {name}: no {marker}")
             continue
+        stage(folder)
         os.chdir(folder)
         namespace = runpy.run_path("plot_data.py")  # plots the well rates
         namespace["plot_sim2seis"]([31, 73, 46], 1, 27)
